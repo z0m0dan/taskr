@@ -15,12 +15,60 @@ interface Task {
   status: "pending" | "done" | "overdue";
 }
 
+const getOverdueTasks = async (context: vscode.ExtensionContext) => {
+  //get yesterday's date
+  const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+  const dateKey = dateToString(yesterday);
+
+  const value = context.globalState.get<Task[]>(dateKey);
+
+  if (value !== undefined) {
+    const overdueTasks = value.filter((task) => {
+      if (task.status === "pending") return true;
+      return false;
+    });
+
+    if (overdueTasks.length > 0) {
+      //create message to show if the user wants to move the tasks to today
+      const message = `You have ${overdueTasks.length} overdue tasks from yesterday, would you like to move them to today?`;
+      const yes = "Yes";
+      const no = "No";
+      const confirmationMessage = await vscode.window.showInformationMessage(
+        message,
+        yes,
+        no
+      );
+
+      //if the user selects yes, move the tasks to today
+      if (confirmationMessage === "Yes") {
+        const today = new Date();
+        const todayKey = dateToString(today);
+        const todayTasks =
+          (context.globalState.get(todayKey) as Array<Task>) ?? [];
+        overdueTasks.forEach((task) => {
+          task.dueTime = new Date(task.dueTime.getTime() + 24 * 60 * 60 * 1000);
+
+          todayTasks.push(task);
+        });
+        await context.globalState.update(todayKey, todayTasks);
+        vscode.window.showInformationMessage("Overdue tasks moved to today");
+      } else {
+      }
+    } else {
+      vscode.window.showInformationMessage("No overdue tasks from yesterday");
+    }
+  }
+};
+
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
 
+  //call the function to check for overdue tasks
+  getOverdueTasks(context);
+
   // Schedule a cron job to check for tasks
 
-  schedule("*/1 * * * *", () => {
+  schedule("*/10 * * * *", () => {
     console.log("Checking for tasks...");
 
     const dateKey = dateToString(new Date());
@@ -142,30 +190,19 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   let soundDisposable = vscode.commands.registerCommand(
-    "taskr.playAudioCue",
+    "taskr.toogleUI",
     () => {
-      const audioFilePath = path.join(
-        context.extensionPath,
-        "audio",
-        "audio.mp3"
-      );
-      const audioUri = vscode.Uri.file(audioFilePath);
-
-      // Create a webview panel to play the audio file.
+      // Create a webview panel to how an html file
       const panel = vscode.window.createWebviewPanel(
-        "myWebviewPanel",
-        "Audio Player",
-        vscode.ViewColumn.Active,
+        "taskr",
+        "Taskr: Tasks reminder",
+        vscode.ViewColumn.One,
         {
           enableScripts: true,
+
           retainContextWhenHidden: true,
         }
       );
-      panel.webview.html = `
-      <audio controls autoplay>
-        <source src="${audioUri}" type="audio/mpeg">
-      </audio>
-    `;
     }
   );
 
