@@ -7,8 +7,7 @@ import {
   converTimeInputToRedableString,
   convertTimeIntervalToDate,
 } from "./utils";
-import { TaskrViewProvider } from "./app/TaskrViewProvider";
-import { SidebarProvider } from "./app/SidebarProvider";
+import { SidebarProvider } from "./Providers/SidebarProvider";
 
 interface Task {
   name: string;
@@ -64,8 +63,6 @@ const getOverdueTasks = async (context: vscode.ExtensionContext) => {
 
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
-
-  const provider = new TaskrViewProvider(context.extensionUri);
 
   //call the function to check for overdue tasks
   getOverdueTasks(context);
@@ -198,14 +195,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider)
   );
 
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      TaskrViewProvider.viewType,
-      provider
-    ),
-    createValueDisposable,
-    getValueDisposable
-  );
+  context.subscriptions.push(createValueDisposable, getValueDisposable);
 }
 
 // This method is called when your extension is deactivated
