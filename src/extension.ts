@@ -7,7 +7,8 @@ import {
   converTimeInputToRedableString,
   convertTimeIntervalToDate,
 } from "./utils";
-import path = require("path");
+import { TaskrViewProvider } from "./app/TaskrViewProvider";
+import { SidebarProvider } from "./app/SidebarProvider";
 
 interface Task {
   name: string;
@@ -51,8 +52,9 @@ const getOverdueTasks = async (context: vscode.ExtensionContext) => {
           todayTasks.push(task);
         });
         await context.globalState.update(todayKey, todayTasks);
-        vscode.window.showInformationMessage("Overdue tasks moved to today");
-      } else {
+        vscode.window.showInformationMessage(
+          "Overdue tasks moved to today with the same due time"
+        );
       }
     } else {
       vscode.window.showInformationMessage("No overdue tasks from yesterday");
@@ -62,6 +64,8 @@ const getOverdueTasks = async (context: vscode.ExtensionContext) => {
 
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
+
+  const provider = new TaskrViewProvider(context.extensionUri);
 
   //call the function to check for overdue tasks
   getOverdueTasks(context);
@@ -189,27 +193,18 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  let soundDisposable = vscode.commands.registerCommand(
-    "taskr.toogleUI",
-    () => {
-      // Create a webview panel to how an html file
-      const panel = vscode.window.createWebviewPanel(
-        "taskr",
-        "Taskr: Tasks reminder",
-        vscode.ViewColumn.One,
-        {
-          enableScripts: true,
-
-          retainContextWhenHidden: true,
-        }
-      );
-    }
+  const sidebarProvider = new SidebarProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider)
   );
 
   context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      TaskrViewProvider.viewType,
+      provider
+    ),
     createValueDisposable,
-    getValueDisposable,
-    soundDisposable
+    getValueDisposable
   );
 }
 
