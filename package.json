@@ -38,19 +38,18 @@
     "commands": [
       {
         "command": "taskr.createValue",
-        "title": "Taskr: Create a new task"
+        "category": "Taskr",
+        "title": "Create a new task"
       },
       {
         "command": "taskr.getValue",
-        "title": "Taskr: Show task on console"
+        "category": "Taskr",
+        "title": "Show task on console"
       },
       {
-        "command": "taskr.sayHello",
-        "title": "Taskr: Say Hello"
-      },
-      {
-        "command": "taskr.playAudioCue",
-        "title": "Taskr: Play Audio Cue"
+        "command": "taskr.clearTasks",
+        "category": "Taskr",
+        "title": "Clear all the tasks"
       }
     ]
   },
@@ -72,6 +71,7 @@
     "@types/node-cron": "^3.0.7",
     "@types/react": "^18.0.33",
     "@types/react-dom": "^18.0.11",
+    "@types/uuid": "^9.0.1",
     "@types/vscode": "^1.77.0",
     "@typescript-eslint/eslint-plugin": "^5.53.0",
     "@typescript-eslint/parser": "^5.53.0",
@@ -88,6 +88,7 @@
     "node-cron": "^3.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "uuid": "^9.0.0",
     "vite": "^4.2.1"
   }
 }

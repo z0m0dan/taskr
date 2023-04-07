@@ -8,12 +8,8 @@ import {
   convertTimeIntervalToDate,
 } from "./utils";
 import { SidebarProvider } from "./Providers/SidebarProvider";
-
-interface Task {
-  name: string;
-  dueTime: Date;
-  status: "pending" | "done" | "overdue";
-}
+import { Task } from "./types";
+import { v4 as createId } from "uuid";
 
 const getOverdueTasks = async (context: vscode.ExtensionContext) => {
   //get yesterday's date
@@ -67,9 +63,15 @@ export function activate(context: vscode.ExtensionContext) {
   //call the function to check for overdue tasks
   getOverdueTasks(context);
 
+  //register the sidbar provider
+  const sidebarProvider = new SidebarProvider(context.extensionUri, context);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider)
+  );
+
   // Schedule a cron job to check for tasks
 
-  schedule("*/10 * * * *", () => {
+  schedule("*/2 * * * *", () => {
     console.log("Checking for tasks...");
 
     const dateKey = dateToString(new Date());
@@ -79,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
       const overdueTasks = value.filter((task) => {
         if (task.status === "pending") {
           const now = new Date();
-          if (now >= task.dueTime) {
+          if (now >= new Date(task.dueTime)) {
             return true;
           }
         }
@@ -87,6 +89,14 @@ export function activate(context: vscode.ExtensionContext) {
       });
 
       if (overdueTasks.length > 0) {
+        //update the tasks to overdue
+
+        overdueTasks.forEach((task) => {
+          task.status = "overdue";
+        });
+
+        globalState.update(dateKey, overdueTasks);
+
         overdueTasks.forEach((task) => {
           vscode.window.showInformationMessage(
             `The task "${task.name}" is overdue`
@@ -95,6 +105,9 @@ export function activate(context: vscode.ExtensionContext) {
       } else {
         console.log("No overdue tasks");
       }
+      sidebarProvider._view?.webview.postMessage({
+        type: "onReload",
+      });
     }
   });
 
@@ -145,6 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         const task: Task = {
+          id: createId(),
           name: value,
           dueTime,
           status: "pending",
@@ -163,6 +177,39 @@ export function activate(context: vscode.ExtensionContext) {
             dueStringTime
           )}'`
         );
+      }
+    }
+  );
+
+  let clearTasksDisposable = vscode.commands.registerCommand(
+    "taskr.clearTasks",
+    async () => {
+      //confirmation box to clear tasks
+      const message = `Are you sure you want to clear all tasks?`;
+      const yes = "Yes";
+      const no = "No";
+      const confirmationMessage = await vscode.window.showInformationMessage(
+        message,
+        yes,
+        no
+      );
+
+      if (confirmationMessage !== "Yes") {
+        return;
+      }
+
+      const dateKey = dateToString(new Date());
+
+      const value = globalState.get<Task[]>(dateKey);
+
+      if (value !== undefined) {
+        globalState.update(dateKey, undefined);
+        vscode.window.showInformationMessage("Tasks cleared");
+        sidebarProvider._view?.webview.postMessage({
+          type: "onLoad",
+        });
+      } else {
+        vscode.window.showWarningMessage("No tasks to clear");
       }
     }
   );
@@ -190,12 +237,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const sidebarProvider = new SidebarProvider(context.extensionUri);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider)
+    createValueDisposable,
+    getValueDisposable,
+    clearTasksDisposable
   );
-
-  context.subscriptions.push(createValueDisposable, getValueDisposable);
 }
 
 // This method is called when your extension is deactivated
