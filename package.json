@@ -6,6 +6,7 @@
   "engines": {
     "vscode": "^1.77.0"
   },
+  "icon": "https://flic.kr/p/2orTCTg",
   "publisher": "zomodan",
   "categories": [
     "Other"
