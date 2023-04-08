@@ -6,7 +6,12 @@
   "engines": {
     "vscode": "^1.77.0"
   },
-  "icon": "https://flic.kr/p/2orTCTg",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/z0m0dan/taskr"
+  },
+  "icon": "media/logo.jpg",
   "publisher": "zomodan",
   "categories": [
     "Other"
