@@ -18,6 +18,12 @@ You can access to the extension using the sidebar, but also using the following 
 
 - `Show task list` - Shows the task list on the console
 
+## Development
+
+- `npm install` - Installs dependencies
+
+To merge changes into the `master` branch, create a pull request and have it approved by at least one other developer.
+
 ## Known Issues
 
 Calling out known issues can help limit users opening duplicate issues against your extension.
