@@ -2,7 +2,7 @@
   "name": "taskr",
   "displayName": "Taskr",
   "description": "Task reminder for day to day productivity",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.77.0"
   },
