@@ -6,10 +6,13 @@ import {
   dateToString,
   converTimeInputToRedableString,
   convertTimeIntervalToDate,
+  filterDuededTasks,
 } from "./utils";
 import { SidebarProvider } from "./Providers/SidebarProvider";
 import { Task } from "./types";
 import { v4 as createId } from "uuid";
+import { CompletedSidebarProvider } from "./Providers/CompletedSidebarProvider";
+import { ScheduledProvider } from "./Providers/ScheduledSidebarProvider";
 
 const getOverdueTasks = async (context: vscode.ExtensionContext) => {
   //get yesterday's date
@@ -56,6 +59,7 @@ const getOverdueTasks = async (context: vscode.ExtensionContext) => {
     }
   }
 };
+const cronJobKey = "cronJobKey";
 
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
@@ -65,51 +69,69 @@ export function activate(context: vscode.ExtensionContext) {
 
   //register the sidbar provider
   const sidebarProvider = new SidebarProvider(context.extensionUri, context);
+  const completedProvider = new CompletedSidebarProvider(
+    context.extensionUri
+    // context
+  );
+  const scheduledProvider = new ScheduledProvider(
+    context.extensionUri
+    // context
+  );
+
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider)
+    vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider),
+    vscode.window.registerWebviewViewProvider(
+      "taskr-sidebar-scheduled",
+      scheduledProvider
+    ),
+    vscode.window.registerWebviewViewProvider(
+      "taskr-sidebar-completed",
+      completedProvider
+    )
   );
 
   // Schedule a cron job to check for tasks
 
-  schedule("*/2 * * * *", () => {
-    console.log("Checking for tasks...");
+  if (
+    globalState.get(cronJobKey) === undefined ||
+    !globalState.get(cronJobKey)
+  ) {
+    //add a key to the global state to avoid re-scheduling the cron job
 
-    const dateKey = dateToString(new Date());
+    globalState.update(cronJobKey, true);
 
-    const value = globalState.get<Task[]>(dateKey);
-    if (value !== undefined) {
-      const overdueTasks = value.filter((task) => {
-        if (task.status === "pending") {
-          const now = new Date();
-          if (now >= new Date(task.dueTime)) {
-            return true;
-          }
+    schedule("*/2 * * * *", () => {
+      console.log("Checking for tasks...");
+
+      const dateKey = dateToString(new Date());
+
+      const value = globalState.get<Task[]>(dateKey);
+      if (value !== undefined) {
+        const overdueTasks = filterDuededTasks(value);
+
+        if (overdueTasks.length > 0) {
+          //update the tasks to overdue
+
+          overdueTasks.forEach((task) => {
+            task.status = "overdue";
+          });
+
+          globalState.update(dateKey, overdueTasks);
+
+          overdueTasks.forEach((task) => {
+            vscode.window.showInformationMessage(
+              `The task "${task.name}" is overdue`
+            );
+          });
+        } else {
+          console.log("No overdue tasks");
         }
-        return false;
-      });
-
-      if (overdueTasks.length > 0) {
-        //update the tasks to overdue
-
-        overdueTasks.forEach((task) => {
-          task.status = "overdue";
+        sidebarProvider._view?.webview.postMessage({
+          type: "onReload",
         });
-
-        globalState.update(dateKey, overdueTasks);
-
-        overdueTasks.forEach((task) => {
-          vscode.window.showInformationMessage(
-            `The task "${task.name}" is overdue`
-          );
-        });
-      } else {
-        console.log("No overdue tasks");
       }
-      sidebarProvider._view?.webview.postMessage({
-        type: "onReload",
-      });
-    }
-  });
+    });
+  }
 
   // Register the 'createValue' command.
   let createValueDisposable = vscode.commands.registerCommand(
@@ -194,7 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
         no
       );
 
-      if (confirmationMessage !== "Yes") {
+      if (confirmationMessage !== yes) {
         return;
       }
 

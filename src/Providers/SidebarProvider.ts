@@ -126,7 +126,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  getTaskList() {
+  getTaskList(): Task[] | undefined {
     const dateKey = dateToString(new Date());
 
     const taskList = this.context.globalState.get<Task[]>(dateKey);

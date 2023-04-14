@@ -1,3 +1,5 @@
+import { Task } from "./types";
+
 export const convertTimeIntervalToDate = (timeInterval: string) => {
   if (timeInterval.includes("m")) {
     const minutes = parseInt(timeInterval.replace("m", ""));
@@ -20,4 +22,10 @@ export const converTimeInputToRedableString = (timeInterval: string) => {
     const hours = parseInt(timeInterval.replace("h", ""));
     return `${hours} hours`;
   } else return undefined;
+};
+
+export const filterDuededTasks = (tasks: Array<Task>) => {
+  return tasks.filter(
+    (task) => task.status === "pending" && new Date() >= new Date(task.dueTime)
+  );
 };
