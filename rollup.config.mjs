@@ -6,6 +6,7 @@ import sveltePreprocess from "svelte-preprocess";
 import typescript from "@rollup/plugin-typescript";
 import path from "path";
 import fs from "fs";
+import scss from "rollup-plugin-scss";
 
 const production = !process.env.ROLLUP_WATCH;
 
@@ -23,8 +24,17 @@ export default fs
       },
       plugins: [
         svelte({
-          preprocess: sveltePreprocess(),
+          preprocess: sveltePreprocess({
+            sourceMap: !production,
+            postcss: {
+              plugins: [require("autoprefixer")()],
+            },
+          }),
+          css: (css) => {
+            css.write("public/bundle.css");
+          },
         }),
+        scss(),
         resolve({
           browser: true,
           dedupe: ["svelte"],

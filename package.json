@@ -101,10 +101,13 @@
     "@typescript-eslint/eslint-plugin": "^5.58.0",
     "@typescript-eslint/parser": "^5.58.0",
     "@vscode/test-electron": "^2.3.0",
+    "autoprefixer": "^10.4.14",
     "concurrently": "^8.0.1",
     "eslint": "^8.38.0",
     "glob": "^10.0.0",
     "mocha": "^10.2.0",
+    "postcss": "^8.4.21",
+    "pug": "^3.0.2",
     "rollup-plugin-svelte": "^7.1.4",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.34.1",
@@ -120,6 +123,8 @@
   "dependencies": {
     "node-cron": "^3.0.2",
     "rollup": "^3.20.2",
+    "rollup-plugin-scss": "3",
+    "sass": "^1.62.0",
     "uuid": "^9.0.0"
   }
 }

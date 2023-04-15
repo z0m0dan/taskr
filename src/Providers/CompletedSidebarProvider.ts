@@ -1,13 +1,14 @@
 import * as vscode from "vscode";
 import { getNonce } from "./getNounce";
 
+
 export class CompletedSidebarProvider implements vscode.WebviewViewProvider {
   _view?: vscode.WebviewView;
   _doc?: vscode.TextDocument;
   _context?: vscode.ExtensionContext;
 
   constructor(
-    private readonly _extensionUri: vscode.Uri // private readonly _: vscode.ExtensionContext
+    private readonly _extensionUri: vscode.Uri // private readonly context: vscode.ExtensionContext
   ) {}
 
   public resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -80,10 +81,9 @@ export class CompletedSidebarProvider implements vscode.WebviewViewProvider {
 
 			</head>
       <body>
-      <script>
-      const vscode = acquireVsCodeApi();
-      </script>
-      <scrip nonce="${nonce}" src="${scriptUri}"></scrip>
+      </div>
+      <script nonce="${nonce}">const tsvscode = acquireVsCodeApi();</script>
+      <script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
   }
