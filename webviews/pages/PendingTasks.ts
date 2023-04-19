@@ -1,4 +1,5 @@
-import App from "../components/CompletedTasks.svelte";
+//@ts-nocheck
+import App from "../components/PendingTasks.svelte";
 
 const app = new App({
   target: document.body,

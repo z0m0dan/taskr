@@ -2,7 +2,10 @@ export interface Task {
   id: string;
   name: string;
   dueTime: Date;
-  status: "pending" | "done" | "overdue" | "scheduled";
+  status: "scheduled" | "done" | "overdue" | "ongoing";
   time?: string;
-  nextTaskId?: string;
+  dependsOn?:{
+    name:string
+    id:string
+  }
 }

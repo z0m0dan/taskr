@@ -17,9 +17,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onView:taskr-sidebar-view"
-  ],
+    "onStartupFinished"  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -43,16 +41,9 @@
         {
           "type": "webview",
           "id": "taskr-sidebar-scheduled",
-          "name": "Scheduled Tasks",
+          "name": "Pending Tasks",
           "icon": "media/heart.svg",
           "contextualTitle": "Taskr-Scheduled"
-        },
-        {
-          "type": "webview",
-          "id": "taskr-sidebar-completed",
-          "name": "Completed Tasks",
-          "icon": "media/heart.svg",
-          "contextualTitle": "Taskr-Completed"
         }
       ]
     },

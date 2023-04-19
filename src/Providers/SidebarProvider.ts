@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
 import { getNonce } from "./getNounce";
-import * as fs from "fs";
-import * as path from "path";
 import { Task } from "../types";
 import { convertTimeIntervalToDate, dateToString } from "../utils";
 import { v4 as createId } from "uuid";
@@ -13,7 +11,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly context: vscode.ExtensionContext
+    private readonly context: vscode.ExtensionContext,
+    private readonly updateScheduledTasks: () => void
   ) {}
 
   private validateTaskInput(value: { title: string; dueTime: string }) {
@@ -134,29 +133,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       return undefined;
     }
 
-    //parse time from taskList
-    taskList.forEach((task) => {
-      const time = this.dateDiff(new Date(task.dueTime), new Date());
-      task.time = time;
-    });
-    return taskList;
-  }
 
-  getParsedTaskList(): Task[] | undefined {
-    const taskList = this.getTaskList();
-
-    if (!taskList) {
-      return undefined;
-    }
 
     //parse time from taskList
-    const parsedTaskList = taskList.map((task) => {
+    const taskListWithTime: Task[] = taskList.map((task) => {
+      if(task.status === "done" || task.status === "overdue" || task.status === 'scheduled') return task;
       const time = this.dateDiff(new Date(task.dueTime), new Date());
-      task.time = time;
-      return task;
+      return { ...task, time };
     });
 
-    return parsedTaskList;
+    return taskListWithTime;
   }
 
   public resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -195,7 +181,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                   id: createId(),
                   name: value.title,
                   dueTime: dueTime,
-                  status: "pending",
+                  status: "ongoing",
                 },
               ]);
             } else {
@@ -203,14 +189,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 id: createId(),
                 name: value.title,
                 dueTime: dueTime,
-                status: "pending",
+                status: "ongoing",
               });
               this.context.globalState.update(dateKey, taskList);
             }
             vscode.window.showInformationMessage("Task added successfully");
 
+            this.updateScheduledTasks();
             webviewView.webview.postMessage({
-              command: "update-task-list",
+              command: "update-tasks-list",
               value: this.getTaskList(),
             });
           }
@@ -231,13 +218,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           this.context.globalState.update(dateKey, newTaskList);
           vscode.window.showInformationMessage("Task deleted successfully");
           webviewView.webview.postMessage({
-            command: "update-task-list",
+            command: "update-tasks-list",
             value: this.getTaskList(),
           });
           break;
         }
 
-        case "onComplete": {
+        case "complete-task": {
+          console.log("complete-task");
+
           const value = data.value;
           const dateKey = dateToString(new Date());
           const taskList = this.getTaskList();
@@ -249,7 +238,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             if (task.id === value) {
               return {
                 ...task,
-                status: "completed",
+                status: "done",
                 dueTime: new Date(),
               };
             }
@@ -259,22 +248,22 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           this.context.globalState.update(dateKey, newTaskList);
           vscode.window.showInformationMessage("Task completed successfully");
           webviewView.webview.postMessage({
-            command: "update-task-list",
+            command: "update-tasks-list",
             value: this.getTaskList(),
           });
 
           break;
         }
         case "onLoad": {
-          const taskList = this.getParsedTaskList();
+          const taskList = this.getTaskList();
           if (!taskList) {
             webviewView.webview.postMessage({
-              command: "no-task-found",
-              value: "There are no tasks, add one to get started",
+              command: "update-tasks-list",
+              value: [],
             });
           }
           webviewView.webview.postMessage({
-            command: "update-task-list",
+            command: "update-tasks-list",
             value: taskList,
           });
           break;
@@ -294,18 +283,48 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           this.context.globalState.update(dateKey, undefined);
           vscode.window.showInformationMessage("Tasks cleared successfully");
           webviewView.webview.postMessage({
-            command: "update-task-list",
+            command: "update-tasks-list",
             value: this.getTaskList(),
           });
+          this.updateScheduledTasks();
           break;
         }
-        case "onReload": {
-          webviewView.webview.postMessage({
-            command: "update-task-list",
-            value: this.getParsedTaskList(),
-          });
-        }
+        case "schedule-task": {
+          const value: {
+            title: string;
+            dueTime: string;
+            dependsOn: string;
+          } = data.value;
+          const taskList = this.getTaskList();
+          if (!taskList) {
+            vscode.window.showErrorMessage("No task found");
+            return;
+          }
 
+          const dateKey = dateToString(new Date());
+
+          const dueTime = value.dueTime;
+
+          const task = taskList.find((task) => task.id === value.dependsOn);
+
+          this.context.globalState.update(dateKey, [
+            ...taskList,
+            {
+              id: createId(),
+              name: value.title, 
+              dueTime: dueTime,
+              status: "scheduled",
+              dependsOn: {
+                id: task?.id,
+                name: task?.name,
+              },
+            },
+          ]);
+          vscode.window.showInformationMessage("Task scheduled successfully");
+
+          this.updateScheduledTasks();
+          break;
+        }
         case "onError": {
           if (!data.value) {
             return;
@@ -326,7 +345,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "media", "reset.css")
     );
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "media", "main.js")
+      vscode.Uri.joinPath(this._extensionUri, "out", "compiled", "MainPage.js")
     );
 
     const mainCssUri = webview.asWebviewUri(
@@ -348,9 +367,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
         -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src ${
-          webview.cspSource
-        }; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleResetUri}" rel="stylesheet">
@@ -359,11 +376,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
 			</head>
       <body>
-      ${fs.readFileSync(
-        path.join(__dirname, "..", "media", "index.html"),
-        "utf8"
-      )}
-      </div>
+
+
+      <script nonce="${nonce}">
+      const tsvscode = acquireVsCodeApi();
+      </script>
       <script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

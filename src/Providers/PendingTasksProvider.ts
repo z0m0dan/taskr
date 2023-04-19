@@ -1,15 +1,33 @@
 import * as vscode from "vscode";
 import { getNonce } from "./getNounce";
+import { dateToString } from "../utils";
+import { Task } from "../types";
 
-
-export class CompletedSidebarProvider implements vscode.WebviewViewProvider {
+export class ScheduledProvider implements vscode.WebviewViewProvider {
   _view?: vscode.WebviewView;
   _doc?: vscode.TextDocument;
   _context?: vscode.ExtensionContext;
 
   constructor(
-    private readonly _extensionUri: vscode.Uri // private readonly context: vscode.ExtensionContext
+    private readonly _extensionUri: vscode.Uri,
+    private readonly context: vscode.ExtensionContext // private readonly context: vscode.ExtensionContext
   ) {}
+
+  getTaskList(): Task[] | undefined {
+    const dateKey = dateToString(new Date());
+
+    const taskList = this.context.globalState.get<Task[]>(dateKey);
+    if (!taskList) {
+      return undefined;
+    }
+
+    //filter pending tasks
+    const pendingTaskList = taskList.filter(
+      (task) => task.status === "scheduled"
+    );
+
+    return pendingTaskList;
+  }
 
   public resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
@@ -25,6 +43,30 @@ export class CompletedSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.command) {
+        case "onLoad": {
+          const tasks = this.getTaskList();
+          if (tasks) {
+            const scheduledTasks = this.getTaskList();
+            webviewView.webview.postMessage({
+              command: "update-tasks-list",
+              value: scheduledTasks,
+            });
+          }
+        }
+        case "remove-task": {          
+          const dateKey = dateToString(new Date());
+          const tasks = this.context.globalState.get<Task[]>(dateKey);
+          if (!tasks) {
+            return;
+          }
+          const updatedTasks = tasks.filter((task) => task.id !== data.value);
+          this.context.globalState.update(dateKey, updatedTasks);
+          webviewView.webview.postMessage({
+            command: "update-tasks-list",
+            value: updatedTasks,
+          });
+          break;
+        }
         case "onError": {
           if (!data.value) {
             return;
@@ -49,7 +91,7 @@ export class CompletedSidebarProvider implements vscode.WebviewViewProvider {
         this._extensionUri,
         "out",
         "compiled",
-        "CompletedTasks.js"
+        "PendingTasks.js"
       )
     );
 

@@ -29,10 +29,7 @@ export default fs
             postcss: {
               plugins: [require("autoprefixer")()],
             },
-          }),
-          css: (css) => {
-            css.write("public/bundle.css");
-          },
+          })
         }),
         scss(),
         resolve({

@@ -1,137 +1,84 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from "vscode";
 import { schedule } from "node-cron";
-import {
-  dateToString,
-  converTimeInputToRedableString,
-  convertTimeIntervalToDate,
-  filterDuededTasks,
-} from "./utils";
+import { v4 as createId } from "uuid";
+import * as vscode from "vscode";
+import { ScheduledProvider } from "./Providers/PendingTasksProvider";
 import { SidebarProvider } from "./Providers/SidebarProvider";
 import { Task } from "./types";
-import { v4 as createId } from "uuid";
-import { CompletedSidebarProvider } from "./Providers/CompletedSidebarProvider";
-import { ScheduledProvider } from "./Providers/ScheduledSidebarProvider";
-
-const getOverdueTasks = async (context: vscode.ExtensionContext) => {
-  //get yesterday's date
-  const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-  const dateKey = dateToString(yesterday);
-
-  const value = context.globalState.get<Task[]>(dateKey);
-
-  if (value !== undefined) {
-    const overdueTasks = value.filter((task) => {
-      if (task.status === "pending") return true;
-      return false;
-    });
-
-    if (overdueTasks.length > 0) {
-      //create message to show if the user wants to move the tasks to today
-      const message = `You have ${overdueTasks.length} overdue tasks from yesterday, would you like to move them to today?`;
-      const yes = "Yes";
-      const no = "No";
-      const confirmationMessage = await vscode.window.showInformationMessage(
-        message,
-        yes,
-        no
-      );
-
-      //if the user selects yes, move the tasks to today
-      if (confirmationMessage === "Yes") {
-        const today = new Date();
-        const todayKey = dateToString(today);
-        const todayTasks =
-          (context.globalState.get(todayKey) as Array<Task>) ?? [];
-        overdueTasks.forEach((task) => {
-          task.dueTime = new Date(task.dueTime.getTime() + 24 * 60 * 60 * 1000);
-
-          todayTasks.push(task);
-        });
-        await context.globalState.update(todayKey, todayTasks);
-        vscode.window.showInformationMessage(
-          "Overdue tasks moved to today with the same due time"
-        );
-      }
-    } else {
-      vscode.window.showInformationMessage("No overdue tasks from yesterday");
-    }
-  }
-};
-const cronJobKey = "cronJobKey";
+import {
+  converTimeInputToRedableString,
+  convertTimeIntervalToDate,
+  dateToString,
+  getOverdueTasksFromDayBefore,
+  updateOverdueTasks,
+} from "./utils";
 
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
 
+  schedule("*/2 * * * *", () => {
+    console.log("Checking for tasks...");
+
+    const dateKey = dateToString(new Date());
+
+    const value = globalState.get<Task[]>(dateKey);
+
+    if (!value) return;
+
+    const newTasks = updateOverdueTasks(value);
+
+    globalState.update(dateKey, newTasks);
+
+    updateAllTasks();
+
+    console.log("Tasks updated");
+  });
+
   //call the function to check for overdue tasks
-  getOverdueTasks(context);
+  getOverdueTasksFromDayBefore(context);
 
   //register the sidbar provider
-  const sidebarProvider = new SidebarProvider(context.extensionUri, context);
-  const completedProvider = new CompletedSidebarProvider(
-    context.extensionUri
-    // context
-  );
+
   const scheduledProvider = new ScheduledProvider(
-    context.extensionUri
-    // context
+    context.extensionUri,
+    context
   );
+
+  // function to update the scheduled tasks
+  const updateScheduledTasks = async () => {
+    const dateKey = dateToString(new Date());
+    const tasks = globalState.get<Task[]>(dateKey);
+    if (!tasks) return;
+    const scheduledTasks = tasks.filter((task) => task.status === "scheduled");
+    scheduledProvider._view?.webview.postMessage({
+      command: "update-tasks-list",
+      value: scheduledTasks,
+    });
+  };
+
+  const sidebarProvider = new SidebarProvider(
+    context.extensionUri,
+    context,
+    updateScheduledTasks
+  );
+
+  function updateAllTasks() {
+    sidebarProvider._view?.webview.postMessage({
+      type: "onLoad",
+    });
+    scheduledProvider._view?.webview.postMessage({
+      type: "onLoad",
+    });
+  }
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider),
     vscode.window.registerWebviewViewProvider(
       "taskr-sidebar-scheduled",
       scheduledProvider
-    ),
-    vscode.window.registerWebviewViewProvider(
-      "taskr-sidebar-completed",
-      completedProvider
     )
   );
-
-  // Schedule a cron job to check for tasks
-
-  if (
-    globalState.get(cronJobKey) === undefined ||
-    !globalState.get(cronJobKey)
-  ) {
-    //add a key to the global state to avoid re-scheduling the cron job
-
-    globalState.update(cronJobKey, true);
-
-    schedule("*/2 * * * *", () => {
-      console.log("Checking for tasks...");
-
-      const dateKey = dateToString(new Date());
-
-      const value = globalState.get<Task[]>(dateKey);
-      if (value !== undefined) {
-        const overdueTasks = filterDuededTasks(value);
-
-        if (overdueTasks.length > 0) {
-          //update the tasks to overdue
-
-          overdueTasks.forEach((task) => {
-            task.status = "overdue";
-          });
-
-          globalState.update(dateKey, overdueTasks);
-
-          overdueTasks.forEach((task) => {
-            vscode.window.showInformationMessage(
-              `The task "${task.name}" is overdue`
-            );
-          });
-        } else {
-          console.log("No overdue tasks");
-        }
-        sidebarProvider._view?.webview.postMessage({
-          type: "onReload",
-        });
-      }
-    });
-  }
 
   // Register the 'createValue' command.
   let createValueDisposable = vscode.commands.registerCommand(
@@ -183,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
           id: createId(),
           name: value,
           dueTime,
-          status: "pending",
+          status: "ongoing",
         };
 
         const dateKey = dateToString(dueTime);
@@ -247,7 +194,7 @@ export function activate(context: vscode.ExtensionContext) {
       const value = globalState.get<Task[]>(dateKey);
       if (value !== undefined) {
         value.forEach((task) => {
-          if (task.status === "pending") {
+          if (task.status === "ongoing") {
             vscode.window.showInformationMessage(
               `You have a task "${task.name}" due on ${task.dueTime}`
             );
@@ -267,4 +214,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate(context: vscode.ExtensionContext) {}
