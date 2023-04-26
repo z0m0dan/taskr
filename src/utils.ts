@@ -36,23 +36,23 @@ export const updateOverdueTasks = (tasks: Array<Task>) => {
     }
     return task;
   });
-  //TODO: add logic to update the status of the tasks that depend on this task
 
-  const dependantTasks = updatedTasks.reduce((acc, task) => {
-    const dependantTasks = getDependentTasks(updatedTasks, task);
-    if (dependantTasks.length > 0) {
-      acc.push(...dependantTasks);
+  const updatedDependantTasks = updatedTasks.map((task) => {
+    if (task.status === "overdue") {
+      const dependantTasks = getDependentTasks(updatedTasks, task);
+      if (dependantTasks.length > 1) {
+        const sorted = dependantTasks.sort(
+          (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+        );
+        sorted[0].status = "ongoing";
+      } else if (dependantTasks.length === 1) {
+        dependantTasks[0].status = "ongoing";
+      }
     }
-    return acc;
-  }, [] as Array<Task>);
-
-  return updatedTasks.map((task) => {
-    if (dependantTasks.some((t) => t.id === task.id)) {
-      task.status = "ongoing";
-    }
-
     return task;
   });
+
+  return updatedDependantTasks;
 };
 
 export const filterOverdueTasks = (tasks: Task[]) => {
@@ -102,6 +102,8 @@ export const getOverdueTasksFromDayBefore = async (
         vscode.window.showInformationMessage(
           "Overdue tasks moved to today with the same due time"
         );
+      } else {
+        context.globalState.update(dateKey, []);
       }
     } else {
       vscode.window.showInformationMessage("No overdue tasks from yesterday");

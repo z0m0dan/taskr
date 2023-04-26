@@ -1,8 +1,13 @@
 import * as vscode from "vscode";
 import { getNonce } from "./getNounce";
 import { Task } from "../types";
-import { convertTimeIntervalToDate, dateToString } from "../utils";
+import {
+  convertTimeIntervalToDate,
+  dateToString,
+  updateOverdueTasks,
+} from "../utils";
 import { v4 as createId } from "uuid";
+import { schedule } from "node-cron";
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   _view?: vscode.WebviewView;
@@ -13,7 +18,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private readonly _extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext,
     private readonly updateScheduledTasks: () => void
-  ) {}
+  ) {
+    this.initiateCronJob();
+  }
+
+  private initiateCronJob() {
+    schedule("*/2 * * * *", () => {
+      console.log("Checking for tasks...");
+
+      const dateKey = dateToString(new Date());
+
+      const taskList = this.getTaskList();
+
+      if (!taskList) return;
+
+      const newTasks = updateOverdueTasks(taskList);
+
+      this.context.globalState.update(dateKey, newTasks);
+
+      this._view?.webview.postMessage({
+        command: "update-tasks-list",
+        value: newTasks,
+      });
+
+      this.updateScheduledTasks();
+    });
+  }
 
   private validateTaskInput(value: { title: string; dueTime: string }) {
     if (!value || !value.title || !value.dueTime) {
@@ -133,11 +163,14 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       return undefined;
     }
 
-
-
     //parse time from taskList
     const taskListWithTime: Task[] = taskList.map((task) => {
-      if(task.status === "done" || task.status === "overdue" || task.status === 'scheduled') return task;
+      if (
+        task.status === "done" ||
+        task.status === "overdue" ||
+        task.status === "scheduled"
+      )
+        return task;
       const time = this.dateDiff(new Date(task.dueTime), new Date());
       return { ...task, time };
     });
@@ -190,6 +223,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 name: value.title,
                 dueTime: dueTime,
                 status: "ongoing",
+                createdAt: new Date(),
               });
               this.context.globalState.update(dateKey, taskList);
             }
@@ -255,6 +289,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           break;
         }
         case "onLoad": {
+          console.log("onLoad del server");
+
           const taskList = this.getTaskList();
           if (!taskList) {
             webviewView.webview.postMessage({
@@ -311,7 +347,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             ...taskList,
             {
               id: createId(),
-              name: value.title, 
+              name: value.title,
               dueTime: dueTime,
               status: "scheduled",
               dependsOn: {

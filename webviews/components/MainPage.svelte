@@ -30,7 +30,7 @@
       const { command, value } = event.data; // The json data that the extension sent
       switch (command) {
         case "update-tasks-list":
-          tasks = value.filter((task: Task) => task.status === "ongoing");
+          tasks = value.filter((task: Task) => task.status != "scheduled");
           dropdownTasks = value.filter(
             (task: Task) =>
               task.status === "ongoing" || task.status === "scheduled"
@@ -69,6 +69,12 @@
       command: "clear-tasks",
     });
 
+  const resetForm = () => {
+    taskName = "";
+    taskTime = "";
+    isScheduled = false;
+  };
+
   const handleAddTask = () => {
     if (!taskName || !taskTime) {
       errors.taskName = "Theres an empty field";
@@ -93,6 +99,7 @@
         dueTime: taskTime,
       },
     });
+    resetForm();
   };
 
   const handleCompleteTask = (id: string) =>
@@ -172,24 +179,26 @@
         <thead>
           <th>Name</th>
           <th>Time left</th>
+          <th>Status</th>
           <th>Actions</th>
         </thead>
         <tbody>
           {#each tasks as task}
             <tr>
               <td>{task.name}</td>
-              <td>{task.time}</td>
+              <td>{task.time? task.time : "N/A" }</td>
+              <td>{task.status}</td>
               <td>
-                {#if task.status === "ongoing"}
-                  <div class="button-section">
+                <div class="button-section">
+                    {#if task.status === "ongoing"}
                     <button on:click={() => handleCompleteTask(task.id)}
                       >Complete</button
                     >
+                    {/if}
                     <button on:click={() => handleRemoveTask(task.id)}
                       >Remove</button
                     >
                   </div>
-                {/if}
               </td>
             </tr>{/each}
         </tbody>

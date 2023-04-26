@@ -1,6 +1,5 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { schedule } from "node-cron";
 import { v4 as createId } from "uuid";
 import * as vscode from "vscode";
 import { ScheduledProvider } from "./Providers/PendingTasksProvider";
@@ -11,29 +10,11 @@ import {
   convertTimeIntervalToDate,
   dateToString,
   getOverdueTasksFromDayBefore,
-  updateOverdueTasks,
 } from "./utils";
 
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
 
-  schedule("*/2 * * * *", () => {
-    console.log("Checking for tasks...");
-
-    const dateKey = dateToString(new Date());
-
-    const value = globalState.get<Task[]>(dateKey);
-
-    if (!value) return;
-
-    const newTasks = updateOverdueTasks(value);
-
-    globalState.update(dateKey, newTasks);
-
-    updateAllTasks();
-
-    console.log("Tasks updated");
-  });
 
   //call the function to check for overdue tasks
   getOverdueTasksFromDayBefore(context);
@@ -63,22 +44,15 @@ export function activate(context: vscode.ExtensionContext) {
     updateScheduledTasks
   );
 
-  function updateAllTasks() {
-    sidebarProvider._view?.webview.postMessage({
-      type: "onLoad",
-    });
-    scheduledProvider._view?.webview.postMessage({
-      type: "onLoad",
-    });
-  }
-
+  
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider),
     vscode.window.registerWebviewViewProvider(
       "taskr-sidebar-scheduled",
       scheduledProvider
-    )
-  );
+      )
+      );
+      
 
   // Register the 'createValue' command.
   let createValueDisposable = vscode.commands.registerCommand(
@@ -131,6 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
           name: value,
           dueTime,
           status: "ongoing",
+          createdAt: new Date(),
         };
 
         const dateKey = dateToString(dueTime);
