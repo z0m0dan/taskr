@@ -15,7 +15,6 @@ import {
 export function activate(context: vscode.ExtensionContext) {
   const globalState = context.globalState;
 
-
   //call the function to check for overdue tasks
   getOverdueTasksFromDayBefore(context);
 
@@ -44,15 +43,13 @@ export function activate(context: vscode.ExtensionContext) {
     updateScheduledTasks
   );
 
-  
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("taskr-sidebar", sidebarProvider),
     vscode.window.registerWebviewViewProvider(
       "taskr-sidebar-scheduled",
       scheduledProvider
-      )
-      );
-      
+    )
+  );
 
   // Register the 'createValue' command.
   let createValueDisposable = vscode.commands.registerCommand(
@@ -103,7 +100,9 @@ export function activate(context: vscode.ExtensionContext) {
         const task: Task = {
           id: createId(),
           name: value,
+          timeInterval: dueStringTime,
           dueTime,
+          isNotificationSet: false,
           status: "ongoing",
           createdAt: new Date(),
         };

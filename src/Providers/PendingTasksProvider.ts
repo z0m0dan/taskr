@@ -2,31 +2,19 @@ import * as vscode from "vscode";
 import { getNonce } from "./getNounce";
 import { dateToString } from "../utils";
 import { Task } from "../types";
+import { TaskController } from "../controllers/task.controller";
 
 export class ScheduledProvider implements vscode.WebviewViewProvider {
   _view?: vscode.WebviewView;
   _doc?: vscode.TextDocument;
   _context?: vscode.ExtensionContext;
+  private tasksController?: TaskController;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext // private readonly context: vscode.ExtensionContext
-  ) {}
-
-  getTaskList(): Task[] | undefined {
-    const dateKey = dateToString(new Date());
-
-    const taskList = this.context.globalState.get<Task[]>(dateKey);
-    if (!taskList) {
-      return undefined;
-    }
-
-    //filter pending tasks
-    const pendingTaskList = taskList.filter(
-      (task) => task.status === "scheduled"
-    );
-
-    return pendingTaskList;
+  ) {
+    this.tasksController = new TaskController(context);
   }
 
   public resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -44,16 +32,15 @@ export class ScheduledProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.command) {
         case "onLoad": {
-          const tasks = this.getTaskList();
+          const tasks = this.tasksController?.getTaskList(["scheduled"]);
           if (tasks) {
-            const scheduledTasks = this.getTaskList();
             webviewView.webview.postMessage({
               command: "update-tasks-list",
-              value: scheduledTasks,
+              value: tasks,
             });
           }
         }
-        case "remove-task": {          
+        case "remove-task": {
           const dateKey = dateToString(new Date());
           const tasks = this.context.globalState.get<Task[]>(dateKey);
           if (!tasks) {

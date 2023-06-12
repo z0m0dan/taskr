@@ -1,10 +1,14 @@
+export type TaskStatus = "scheduled" | "done" | "overdue" | "ongoing";
+
 export interface Task {
   id: string;
   name: string;
   dueTime: Date;
-  status: "scheduled" | "done" | "overdue" | "ongoing";
+  status: TaskStatus;
   createdAt: Date;
-  time?: string;
+  timeInterval: string;
+  displayTime?: string;
+  isNotificationSet: boolean;
   dependsOn?: {
     name: string;
     id: string;

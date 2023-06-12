@@ -90,6 +90,7 @@
           dependsOn: selectedTaskToDepend,
         },
       });
+      resetForm();
       return;
     }
     tsvscode.postMessage({
@@ -186,7 +187,7 @@
           {#each tasks as task}
             <tr>
               <td>{task.name}</td>
-              <td>{task.time? task.time : "N/A" }</td>
+              <td>{task.displayTime?? "N/A" }</td>
               <td>{task.status}</td>
               <td>
                 <div class="button-section">

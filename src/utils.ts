@@ -25,34 +25,65 @@ export const converTimeInputToRedableString = (timeInterval: string) => {
   } else return undefined;
 };
 
-const getDependentTasks = (tasks: Array<Task>, task: Task) => {
-  return tasks.filter((t) => t.dependsOn && t.dependsOn.id === task.id);
+export const dateDiff = (date1: Date, date2: Date) => {
+  const diffInMs = date1.getTime() - date2.getTime();
+  const diffInSeconds = Math.abs(diffInMs) / 1000;
+  const diffInMinutes = Math.ceil(diffInSeconds / 60);
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const remainingMinutes = diffInMinutes % 60;
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (diffInMs < 0) {
+    if (diffInHours > 0 && remainingMinutes > 0) {
+      return (
+        formatter.format(diffInHours, "hour") +
+        " " +
+        formatter.format(remainingMinutes, "minute") +
+        " ago"
+      );
+    } else if (diffInHours > 0) {
+      return formatter.format(diffInHours, "hour").replace(/^in /, "") + " ago";
+    } else if (remainingMinutes > 0) {
+      return (
+        formatter.format(remainingMinutes, "minute").replace(/^in /, "") +
+        " ago"
+      );
+    } else if (diffInSeconds < 60) {
+      return "few seconds ago";
+    } else {
+      return (
+        formatter.format(diffInSeconds, "second").replace(/^in /, "") + " ago"
+      );
+    }
+  } else {
+    if (diffInHours > 0 && remainingMinutes > 0) {
+      return (
+        formatter.format(diffInHours, "hour") +
+        " " +
+        formatter
+          .format(Math.ceil(remainingMinutes), "minute")
+          .replace(/^in /, "") +
+        " left"
+      );
+    } else if (diffInHours > 0) {
+      return (
+        formatter.format(diffInHours, "hour").replace(/^in /, "") + " left"
+      );
+    } else if (remainingMinutes > 0) {
+      return (
+        formatter.format(remainingMinutes, "minute").replace(/^in /, "") +
+        " left"
+      );
+    } else {
+      return (
+        formatter.format(diffInSeconds, "second").replace(/^in /, "") + " left"
+      );
+    }
+  }
 };
 
-export const updateOverdueTasks = (tasks: Array<Task>) => {
-  const updatedTasks = tasks.map((task) => {
-    if (task.status === "ongoing" && new Date() >= new Date(task.dueTime)) {
-      task.status = "overdue";
-    }
-    return task;
-  });
-
-  const updatedDependantTasks = updatedTasks.map((task) => {
-    if (task.status === "overdue") {
-      const dependantTasks = getDependentTasks(updatedTasks, task);
-      if (dependantTasks.length > 1) {
-        const sorted = dependantTasks.sort(
-          (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-        );
-        sorted[0].status = "ongoing";
-      } else if (dependantTasks.length === 1) {
-        dependantTasks[0].status = "ongoing";
-      }
-    }
-    return task;
-  });
-
-  return updatedDependantTasks;
+export const getDependentTasks = (tasks: Array<Task>, task: Task) => {
+  return tasks.filter((t) => t.dependsOn && t.dependsOn.id === task.id);
 };
 
 export const filterOverdueTasks = (tasks: Task[]) => {

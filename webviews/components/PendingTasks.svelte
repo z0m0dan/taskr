@@ -21,8 +21,7 @@
       switch (command) {
         case "update-tasks-list":
           tasks = value;
-          console.log(tasks);
-          break;
+          break; 
       }
     });
   });
@@ -43,7 +42,7 @@
         {#each tasks as task}
           <tr>
             <td>{task.name}</td>
-            <td>{task.dueTime}</td>
+            <td>{task.timeInterval}</td>
             <td>{task.dependsOn?.name}</td>
             <td>
               <div class="button-section">
